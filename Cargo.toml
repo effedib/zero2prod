@@ -1,0 +1,32 @@
+[package]
+name = "zero2prod"
+version = "0.1.0"
+authors = ["Francesco Di Bella"]
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "src/main.rs"
+name = "zero2prod"
+
+[dependencies]
+actix-web = "4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio-macros = "2.7.0"
+
+[dev-dependencies]
+reqwest = "*"
+
+[profile.dev]
+debug = "line-tables-only"
+opt-level = 1
+
+[profile.dev.package."*"]
+debug = false
+opt-level = 2
+
+[profile.debugging]
+inherits = "dev"
+debug = true
