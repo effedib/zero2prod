@@ -1,10 +1,24 @@
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::net::TcpListener;
+use std::{net::TcpListener, sync::LazyLock};
 use uuid::Uuid;
 use zero2prod::{
     configuration::{DatabaseSettings, get_configuration},
     startup,
+    telemetry::{get_subscriber, init_subscriber},
 };
+
+static TRACING: LazyLock<()> = LazyLock::new(|| {
+    let subscriber_name = "test".to_string();
+    let default_log_level = "info".to_string();
+
+    if std::env::var("TEST_LOG").is_ok() {
+        let subscriber = get_subscriber(subscriber_name, default_log_level, std::io::stdout);
+        init_subscriber(subscriber);
+    } else {
+        let subscriber = get_subscriber(subscriber_name, default_log_level, std::io::sink);
+        init_subscriber(subscriber);
+    };
+});
 
 pub struct TestApp {
     pub address: String,
@@ -16,7 +30,6 @@ impl TestApp {
         Self { address, db_pool }
     }
 }
-
 #[tokio::test]
 async fn health_check_works() {
     let app = spawn_app().await;
@@ -89,6 +102,8 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
 
 #[allow(clippy::let_underscore_future)]
 async fn spawn_app() -> TestApp {
+    LazyLock::force(&TRACING);
+
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind a random port");
     let port = listener.local_addr().unwrap().port();
     let mut configuration = get_configuration().expect("Failed to get the configuration");
