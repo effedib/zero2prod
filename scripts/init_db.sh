@@ -31,7 +31,7 @@ if [[ -z "${SKIP_DOCKER}" ]]; then
     --publish "${DB_PORT}":5432 \
     --detach \
     --name "${CONTAINER_NAME}" \
-    postgres -N 1000
+    postgres:alpine -N 1000
 
   until [ \
     "$(docker inspect -f "{{.State.Health.Status}}" ${CONTAINER_NAME})" == \
