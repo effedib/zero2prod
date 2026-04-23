@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1-slim-trixie AS chef
 WORKDIR /app
 RUN apt update && apt install clang lld mold -y
 
@@ -16,7 +16,7 @@ ENV SQLX_OFFLINE=true
 RUN cargo build --release --bin zero2prod
 
 
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 WORKDIR /app
 
 # ####################################
