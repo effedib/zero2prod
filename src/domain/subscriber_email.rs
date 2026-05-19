@@ -1,5 +1,3 @@
-// use unicode_segmentation::UnicodeSegmentation;
-
 use validator::ValidateEmail;
 
 #[derive(Debug)]
@@ -25,6 +23,25 @@ impl AsRef<str> for SubscriberEmail {
 mod test {
     use super::SubscriberEmail;
     use claims::assert_err;
+    use fake::{Fake, faker::internet::en::SafeEmail};
+    use rand::{SeedableRng, rngs::StdRng};
+
+    #[derive(Debug, Clone)]
+    struct ValidEmailFixture(pub String);
+
+    impl quickcheck::Arbitrary for ValidEmailFixture {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let mut rng = StdRng::seed_from_u64(u64::arbitrary(g));
+            let email = SafeEmail().fake_with_rng(&mut rng);
+
+            Self(email)
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn valid_emails_are_parsed_successfully(valid_email: ValidEmailFixture) -> bool {
+        SubscriberEmail::parse(valid_email.0).is_ok()
+    }
 
     #[test]
     fn empty_string_is_rejected() {
