@@ -1,10 +1,5 @@
 use unicode_segmentation::UnicodeSegmentation;
 
-pub struct NewSubscriber {
-    pub email: String,
-    pub name: SubscriberName,
-}
-
 #[derive(Debug)]
 pub struct SubscriberName(String);
 
@@ -33,18 +28,18 @@ impl AsRef<str> for SubscriberName {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::SubscriberName;
+    use super::SubscriberName;
     use claims::{assert_err, assert_ok};
 
     #[test]
     fn a_256_grapheme_long_name_is_valid() {
-        let name = "ё".repeat(256);
+        let name = "a".repeat(256);
         assert_ok!(SubscriberName::parse(name));
     }
 
     #[test]
     fn a_256_grapheme_long_name_is_rejected() {
-        let name = "ё".repeat(257);
+        let name = "╤æ".repeat(257);
         assert_err!(SubscriberName::parse(name));
     }
 
