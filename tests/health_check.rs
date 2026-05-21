@@ -4,6 +4,8 @@ use std::{net::TcpListener, sync::LazyLock};
 use uuid::Uuid;
 use zero2prod::{
     configuration::{DatabaseSettings, get_configuration},
+    domain::SubscriberEmail,
+    email_client::EmailClient,
     startup,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -138,7 +140,11 @@ async fn spawn_app() -> TestApp {
     let mut configuration = get_configuration().expect("Failed to get the configuration");
     configuration.database.database_name = Uuid::new_v4().to_string();
     let db_pool = configure_database(&configuration.database).await;
-    let server = startup::run(listener, db_pool.clone()).expect("Failed to bind address");
+    let sender = SubscriberEmail::parse(configuration.email_client.sender_email)
+        .expect("Invalid sender email address");
+    let email_client = EmailClient::new(configuration.email_client.base_url, sender);
+    let server =
+        startup::run(listener, db_pool.clone(), email_client).expect("Failed to bind address");
 
     let _ = tokio::spawn(server);
     let address = format!("http://127.0.0.1:{}", port);
