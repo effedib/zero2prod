@@ -30,7 +30,6 @@ tracing-actix-web = "0.7"
 unicode-segmentation = "1"
 claims = "0.8"
 validator = "0.20.0"
-fake = "5.1.0"
 
 [dependencies.sqlx]
 version = "0.8"
@@ -53,6 +52,9 @@ features = ["json"]
 quickcheck = "1.1.0"
 quickcheck_macros = "1.2.0"
 rand = "0.10.1"
+tokio = { version = "1", features = ["macros", "rt"] }
+wiremock = "0.6"
+fake = "5.1.0"
 
 [profile.dev]
 debug = 0
