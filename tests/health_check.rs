@@ -142,7 +142,11 @@ async fn spawn_app() -> TestApp {
     let db_pool = configure_database(&configuration.database).await;
     let sender = SubscriberEmail::parse(configuration.email_client.sender_email)
         .expect("Invalid sender email address");
-    let email_client = EmailClient::new(configuration.email_client.base_url, sender);
+    let email_client = EmailClient::new(
+        configuration.email_client.base_url,
+        sender,
+        configuration.email_client.authorization_token,
+    );
     let server =
         startup::run(listener, db_pool.clone(), email_client).expect("Failed to bind address");
 
