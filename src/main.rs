@@ -19,6 +19,7 @@ async fn main() -> Result<(), std::io::Error> {
         "{}:{}",
         configuration.application.host, configuration.application.port
     );
+    let timeout = configuration.email_client.timeout();
     let listener = TcpListener::bind(address)?;
     let sender = SubscriberEmail::parse(configuration.email_client.sender_email)
         .expect("Invalid sender email address");
@@ -26,6 +27,7 @@ async fn main() -> Result<(), std::io::Error> {
         configuration.email_client.base_url,
         sender,
         configuration.email_client.authorization_token,
+        timeout,
     );
     startup::run(listener, connection_pool, email_client)?.await?;
     Ok(())
