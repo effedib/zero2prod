@@ -31,6 +31,16 @@ impl TestApp {
     pub fn new(address: String, db_pool: PgPool) -> Self {
         Self { address, db_pool }
     }
+
+    pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(format!("{}/subscriptions", &self.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
 }
 #[allow(clippy::let_underscore_future)]
 pub async fn spawn_app() -> TestApp {
