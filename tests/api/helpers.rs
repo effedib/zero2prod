@@ -1,13 +1,11 @@
-use std::{net::TcpListener, sync::LazyLock};
+use std::sync::LazyLock;
 
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use zero2prod::{
     configuration::{DatabaseSettings, get_configuration},
-    domain::SubscriberEmail,
-    email_client::EmailClient,
-    startup,
+    startup::{Application, get_connection_pool},
     telemetry::{get_subscriber, init_subscriber},
 };
 
@@ -38,27 +36,21 @@ impl TestApp {
 pub async fn spawn_app() -> TestApp {
     LazyLock::force(&TRACING);
 
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind a random port");
-    let port = listener.local_addr().unwrap().port();
-    let mut configuration = get_configuration().expect("Failed to get the configuration");
-    configuration.database.database_name = Uuid::new_v4().to_string();
-    let db_pool = configure_database(&configuration.database).await;
-    let timout = configuration.email_client.timeout();
-    let sender = SubscriberEmail::parse(configuration.email_client.sender_email)
-        .expect("Invalid sender email address");
-    let email_client = EmailClient::new(
-        configuration.email_client.base_url,
-        sender,
-        configuration.email_client.authorization_token,
-        timout,
-    );
-    let server =
-        startup::run(listener, db_pool.clone(), email_client).expect("Failed to bind address");
+    let configuration = {
+        let mut c = get_configuration().expect("Failed to get the configuration");
+        c.database.database_name = Uuid::new_v4().to_string();
+        c.application.port = 0;
+        c
+    };
+    configure_database(&configuration.database).await;
 
-    let _ = tokio::spawn(server);
-    let address = format!("http://127.0.0.1:{}", port);
+    let application = Application::build(configuration.clone())
+        .await
+        .expect("Failed to build application");
 
-    TestApp::new(address, db_pool)
+    let address = format!("http://127.0.0.1:{}", application.port());
+    let _ = tokio::spawn(application.run_until_stopped());
+    TestApp::new(address, get_connection_pool(&configuration.database).await)
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
