@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
+use wiremock::MockServer;
 use zero2prod::{
     configuration::{DatabaseSettings, get_configuration},
     startup::{Application, get_connection_pool},
@@ -25,11 +26,16 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
+    pub email_server: MockServer,
 }
 
 impl TestApp {
-    pub fn new(address: String, db_pool: PgPool) -> Self {
-        Self { address, db_pool }
+    pub fn new(address: String, db_pool: PgPool, email_server: MockServer) -> Self {
+        Self {
+            address,
+            db_pool,
+            email_server,
+        }
     }
 
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
@@ -46,10 +52,13 @@ impl TestApp {
 pub async fn spawn_app() -> TestApp {
     LazyLock::force(&TRACING);
 
+    let email_server = MockServer::start().await;
+
     let configuration = {
         let mut c = get_configuration().expect("Failed to get the configuration");
         c.database.database_name = Uuid::new_v4().to_string();
         c.application.port = 0;
+        c.email_client.base_url = email_server.uri();
         c
     };
     configure_database(&configuration.database).await;
@@ -60,7 +69,11 @@ pub async fn spawn_app() -> TestApp {
 
     let address = format!("http://127.0.0.1:{}", application.port());
     let _ = tokio::spawn(application.run_until_stopped());
-    TestApp::new(address, get_connection_pool(&configuration.database).await)
+    TestApp::new(
+        address,
+        get_connection_pool(&configuration.database).await,
+        email_server,
+    )
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
