@@ -31,6 +31,7 @@ tracing-actix-web = "0.7"
 unicode-segmentation = "1"
 claims = "0.8"
 validator = "0.20.0"
+
 [dependencies.sqlx]
 version = "0.8"
 default-features = false
