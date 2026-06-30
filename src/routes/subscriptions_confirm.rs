@@ -1,11 +1,8 @@
+use crate::domain::Parameters;
+
 use actix_web::{HttpResponse, web};
 use sqlx::PgPool;
 use uuid::Uuid;
-
-#[derive(serde::Deserialize)]
-pub struct Parameters {
-    subscriptions_token: String,
-}
 
 #[tracing::instrument(name = "Confirm a pending subscriber", skip(parameters, pool))]
 pub async fn confirm(parameters: web::Query<Parameters>, pool: web::Data<PgPool>) -> HttpResponse {
@@ -29,7 +26,7 @@ pub async fn confirm(parameters: web::Query<Parameters>, pool: web::Data<PgPool>
 pub async fn confirm_subscriber(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-            UPDATE subscriptions SET status = 'confirmed' WHERE id = $1
+            UPDATE subscriptions SET status = 'confirmed' WHERE id = $1 AND status = 'pending_confirmation'
         "#,
         id
     )

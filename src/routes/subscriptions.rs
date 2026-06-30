@@ -4,7 +4,12 @@ use rand::{RngExt, distr::Alphanumeric, rng};
 use sqlx::{Executor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::{domain::NewSubscriber, email_client::EmailClient, startup::ApplicationBaseUrl};
+use crate::{
+    domain::{NewSubscriber, Subscriber},
+    email_client::EmailClient,
+    startup::ApplicationBaseUrl,
+};
+
 #[derive(serde::Deserialize)]
 pub struct FormData {
     pub email: String,
@@ -36,7 +41,7 @@ pub async fn subscribe(
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
 
-    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
+    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber, &pool).await {
         Ok(id) => id,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
@@ -101,12 +106,19 @@ pub async fn send_confirmation_email(
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(new_subscriber, transaction)
+    skip(new_subscriber, transaction, pool)
 )]
 pub async fn insert_subscriber(
     transaction: &mut Transaction<'_, Postgres>,
     new_subscriber: &NewSubscriber,
+    pool: &PgPool,
 ) -> Result<Uuid, sqlx::Error> {
+    if let Some(subscriber) = get_subscriber_from_email(pool, new_subscriber).await?
+        && subscriber.status == "pending_confirmation"
+    {
+        return Ok(subscriber.id);
+    }
+
     let subscriber = Uuid::new_v4();
     let query = sqlx::query!(
         r#"
@@ -127,7 +139,7 @@ pub async fn insert_subscriber(
     Ok(subscriber)
 }
 
-fn generate_subscription_token() -> String {
+pub fn generate_subscription_token() -> String {
     let mut rng = rng();
     std::iter::repeat_with(|| rng.sample(Alphanumeric))
         .map(char::from)
@@ -159,4 +171,26 @@ pub async fn store_token(
     })?;
 
     Ok(())
+}
+
+#[tracing::instrument(name = "Get subscriber id from email", skip(new_subscriber, pool))]
+pub async fn get_subscriber_from_email(
+    pool: &PgPool,
+    new_subscriber: &NewSubscriber,
+) -> Result<Option<Subscriber>, sqlx::Error> {
+    let fetched_row: Option<Subscriber> = sqlx::query_as::<_, Subscriber>(
+        r#"
+        SELECT * FROM subscriptions
+        WHERE email = $1
+    "#,
+    )
+    .bind(new_subscriber.email.as_ref())
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to execute query: {:?}", e);
+        e
+    })?;
+
+    Ok(fetched_row)
 }
