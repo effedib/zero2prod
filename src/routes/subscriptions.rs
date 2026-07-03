@@ -187,9 +187,9 @@ pub async fn get_subscriber_from_email(
 ) -> Result<Option<Subscriber>, sqlx::Error> {
     let fetched_row: Option<Subscriber> = sqlx::query_as::<_, Subscriber>(
         r#"
-        SELECT * FROM subscriptions
-        WHERE email = $1
-    "#,
+            SELECT * FROM subscriptions
+            WHERE email = $1
+        "#,
     )
     .bind(new_subscriber.email.as_ref())
     .fetch_optional(pool)
