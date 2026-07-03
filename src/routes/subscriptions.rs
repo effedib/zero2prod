@@ -2,11 +2,13 @@ use actix_web::{HttpResponse, Responder, web};
 use chrono::Utc;
 use rand::{RngExt, distr::Alphanumeric, rng};
 use sqlx::{Executor, PgPool, Postgres, Transaction};
+use tera::Tera;
 use uuid::Uuid;
 
 use crate::{
     domain::{NewSubscriber, Subscriber},
     email_client::EmailClient,
+    helpers::render_confirmation_email,
     startup::ApplicationBaseUrl,
 };
 
@@ -28,6 +30,7 @@ pub struct FormData {
 pub async fn subscribe(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
+    tera: web::Data<Tera>,
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
 ) -> impl Responder {
@@ -60,6 +63,7 @@ pub async fn subscribe(
     }
 
     if send_confirmation_email(
+        &tera,
         &email_client,
         new_subscriber,
         &base_url.0,
@@ -80,6 +84,7 @@ pub async fn subscribe(
     skip(email_client, new_subscriber, base_url, subscriptions_token)
 )]
 pub async fn send_confirmation_email(
+    tera: &Tera,
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
     base_url: &str,
@@ -94,13 +99,15 @@ pub async fn send_confirmation_email(
         "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
         confirmation_link
     );
-    let html_body = &format!(
-        "Welcome to our newsletter!<br />Click <a href=\"{}\">here</a> to confirm your subscription.",
-        confirmation_link
-    );
-
+    let html_body = render_confirmation_email(tera, confirmation_link.as_str())
+        .expect("Impossible to render the confirmation email");
     email_client
-        .send_email(new_subscriber.email, "Welcome!", html_body, plain_body)
+        .send_email(
+            new_subscriber.email,
+            "Welcome!",
+            html_body.as_str(),
+            plain_body,
+        )
         .await
 }
 

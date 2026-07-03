@@ -3,6 +3,7 @@ use std::net::TcpListener;
 use crate::configuration::{DatabaseSettings, Settings};
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
+use crate::helpers::init_tera;
 use crate::routes::{confirm, health_check, subscribe};
 use actix_web::{App, HttpServer, dev::Server, web};
 use sqlx::PgPool;
@@ -66,6 +67,7 @@ pub fn run(
     let db_pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
+    let tera = web::Data::new(init_tera("templates/**/*.html"));
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
@@ -75,6 +77,7 @@ pub fn run(
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())
+            .app_data(tera.clone())
     })
     .listen(listener)?
     .run();
