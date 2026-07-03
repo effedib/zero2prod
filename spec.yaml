@@ -34,6 +34,9 @@ services:
       - key: APP_APPLICATION__BASE_URL
         scope: RUN_TIME
         value: ${APP_URL}
+      - key: APP_EMAIL_CLIENT__AUTHORIZATION_TOKEN
+        scope: RUN_TIME
+        value: ${AUTHORIZATION_TOKEN}
 databases:
   - engine: PG
     name: newsletter
