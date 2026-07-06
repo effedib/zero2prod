@@ -125,3 +125,35 @@ async fn subscribe_sends_a_confirmation_email_with_a_link() {
 
     assert_eq!(confirmation_links.html, confirmation_links.plain_text);
 }
+
+#[tokio::test]
+async fn subscribe_sends_a_confirmation_email_with_a_rendered_html() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+
+    let req = &app.email_server.received_requests().await.unwrap()[0];
+    let raw_body: serde_json::Value = serde_json::from_slice(&req.body).unwrap();
+    let html_body = raw_body["HtmlBody"].as_str().unwrap();
+
+    let template_content = std::fs::read_to_string("templates/confirmation.html")
+        .expect("impossible to read html template");
+
+    let confirmation_link = app.get_confirmation_links(req).html;
+    let port = confirmation_link.port().unwrap();
+    let host_with_port = format!("127.0.0.1:{}/subscriptions", port);
+    let final_body = html_body.replace("127.0.0.1/subscriptions", &host_with_port);
+
+    let expected_content =
+        template_content.replace("{{ confirmation_link }}", confirmation_link.as_str());
+
+    assert_eq!(final_body, expected_content);
+}
