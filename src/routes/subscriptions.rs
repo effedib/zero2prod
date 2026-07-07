@@ -110,6 +110,7 @@ pub async fn send_confirmation_email(
     );
     let html_body = render_confirmation_email(tera, confirmation_link.as_str())
         .expect("Impossible to render the confirmation email");
+
     email_client
         .send_email(
             new_subscriber.email,

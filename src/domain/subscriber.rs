@@ -6,6 +6,6 @@ pub struct Subscriber {
     pub id: Uuid,
     pub email: String,
     pub name: String,
-    pub subscribed_at: String,
+    pub subscribed_at: chrono::DateTime<chrono::Utc>,
     pub status: String,
 }

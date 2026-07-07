@@ -4,5 +4,5 @@ application:
 database:
   require_ssl: true
 email_client:
-  base_url: "https://api.postmarkapp.com"
-  sender_email: "francesco.dibella@thelevelgroup.com"
+  base_url: "https://api.mailgun.net/v3/sandboxf8682d349a9e43a4a0a7338c8c787ad6.mailgun.org/"
+  sender_email: "postmaster@sandboxf8682d349a9e43a4a0a7338c8c787ad6.mailgun.org"

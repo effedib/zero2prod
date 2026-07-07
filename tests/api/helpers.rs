@@ -6,6 +6,7 @@ use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::{
     configuration::{DatabaseSettings, get_configuration},
+    email_client::TargetEmailBody,
     startup::{Application, get_connection_pool},
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -51,7 +52,7 @@ impl TestApp {
     }
 
     pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationLinks {
-        let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
+        let body: TargetEmailBody = serde_urlencoded::from_bytes(&email_request.body).unwrap();
         let get_link = |s: &str| {
             let links: Vec<_> = linkify::LinkFinder::new()
                 .links(s)
@@ -66,8 +67,8 @@ impl TestApp {
             confirmation_link
         };
 
-        let html = get_link(body["HtmlBody"].as_str().unwrap());
-        let plain_text = get_link(body["TextBody"].as_str().unwrap());
+        let html = get_link(body.html.as_str());
+        let plain_text = get_link(body.text.as_str());
 
         ConfirmationLinks { html, plain_text }
     }

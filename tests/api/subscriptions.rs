@@ -2,6 +2,7 @@ use wiremock::{
     Mock, ResponseTemplate,
     matchers::{method, path},
 };
+use zero2prod::email_client::TargetEmailBody;
 
 use crate::helpers::spawn_app;
 
@@ -11,7 +12,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
-    Mock::given(path("/email"))
+    Mock::given(path("/messages"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
@@ -29,7 +30,7 @@ async fn subscribe_persists_the_new_subscriber() {
 
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
-    Mock::given(path("/email"))
+    Mock::given(path("/messages"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
@@ -96,7 +97,7 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
     let app = spawn_app().await;
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
-    Mock::given(path("/email"))
+    Mock::given(path("/messages"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
@@ -111,7 +112,7 @@ async fn subscribe_sends_a_confirmation_email_with_a_link() {
     let app = spawn_app().await;
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
-    Mock::given(path("/email"))
+    Mock::given(path("/messages"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
@@ -131,7 +132,7 @@ async fn subscribe_sends_a_confirmation_email_with_a_rendered_html() {
     let app = spawn_app().await;
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
-    Mock::given(path("/email"))
+    Mock::given(path("/messages"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
@@ -141,8 +142,8 @@ async fn subscribe_sends_a_confirmation_email_with_a_rendered_html() {
     app.post_subscriptions(body.into()).await;
 
     let req = &app.email_server.received_requests().await.unwrap()[0];
-    let raw_body: serde_json::Value = serde_json::from_slice(&req.body).unwrap();
-    let html_body = raw_body["HtmlBody"].as_str().unwrap();
+    let raw_body: TargetEmailBody = serde_urlencoded::from_bytes(&req.body).unwrap();
+    let html_body = raw_body.html.as_str();
 
     let template_content = std::fs::read_to_string("templates/confirmation.html")
         .expect("impossible to read html template");
