@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, ResponseError, web};
+use actix_web::{HttpResponse, ResponseError, http::StatusCode, web};
 use chrono::Utc;
 use rand::{RngExt, distr::Alphanumeric, rng};
 use sqlx::{Executor, PgPool, Postgres, Transaction};
@@ -12,9 +12,23 @@ use crate::{
     startup::ApplicationBaseUrl,
 };
 
-#[allow(unused)]
-#[derive(Debug)]
+fn error_chain_fmt(e: impl std::error::Error, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    writeln!(f, "{}\n", e)?;
+    let mut current = e.source();
+    while let Some(cause) = current {
+        writeln!(f, "Caused by:\n\t{}", cause)?;
+        current = cause.source();
+    }
+    Ok(())
+}
+
 pub struct StoreTokenError(sqlx::Error);
+
+impl std::fmt::Debug for StoreTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
 
 impl std::fmt::Display for StoreTokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -25,7 +39,92 @@ impl std::fmt::Display for StoreTokenError {
     }
 }
 
-impl ResponseError for StoreTokenError {}
+impl std::error::Error for StoreTokenError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+pub enum SubscribeError {
+    ValidationError(String),
+    StoreTokenError(StoreTokenError),
+    SendEmailError(reqwest::Error),
+    PoolError(sqlx::Error),
+    InsertSubscriberError(sqlx::Error),
+    TransactionCommitError(sqlx::Error),
+}
+
+impl From<StoreTokenError> for SubscribeError {
+    fn from(value: StoreTokenError) -> Self {
+        Self::StoreTokenError(value)
+    }
+}
+
+impl From<String> for SubscribeError {
+    fn from(value: String) -> Self {
+        Self::ValidationError(value)
+    }
+}
+
+impl From<reqwest::Error> for SubscribeError {
+    fn from(value: reqwest::Error) -> Self {
+        Self::SendEmailError(value)
+    }
+}
+
+impl std::fmt::Display for SubscribeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SubscribeError::ValidationError(e) => write!(f, "{}", e),
+            SubscribeError::StoreTokenError(_) => write!(
+                f,
+                "Failed to store the confirmation token for a new subscriber."
+            ),
+            SubscribeError::SendEmailError(_) => write!(f, "Failed to send a confirmation email."),
+            SubscribeError::PoolError(_) => {
+                write!(f, "Failed to acquire a Postgres connection from the pool")
+            }
+            SubscribeError::InsertSubscriberError(_) => {
+                write!(f, "Failed to insert a new subscriber in the database.")
+            }
+            SubscribeError::TransactionCommitError(_) => write!(
+                f,
+                "Failed to commit SQL transaction to store a new subscriber."
+            ),
+        }
+    }
+}
+
+impl std::fmt::Debug for SubscribeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl std::error::Error for SubscribeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            SubscribeError::ValidationError(_) => None,
+            SubscribeError::PoolError(e) => Some(e),
+            SubscribeError::InsertSubscriberError(e) => Some(e),
+            SubscribeError::TransactionCommitError(e) => Some(e),
+            SubscribeError::StoreTokenError(e) => Some(e),
+            SubscribeError::SendEmailError(e) => Some(e),
+        }
+    }
+}
+impl ResponseError for SubscribeError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            SubscribeError::PoolError(_)
+            | SubscribeError::InsertSubscriberError(_)
+            | SubscribeError::TransactionCommitError(_)
+            | SubscribeError::StoreTokenError(_)
+            | SubscribeError::SendEmailError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -48,42 +147,32 @@ pub async fn subscribe(
     tera: web::Data<Tera>,
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let new_subscriber = match form.0.try_into() {
-        Ok(new_sub) => new_sub,
-        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
-    };
+) -> Result<HttpResponse, SubscribeError> {
+    let new_subscriber = form.0.try_into()?;
 
-    let mut transaction = match pool.begin().await {
-        Ok(transaction) => transaction,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
-    };
+    let mut transaction = pool.begin().await.map_err(SubscribeError::PoolError)?;
 
-    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber, &pool).await {
-        Ok(id) => id,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
-    };
+    let subscriber_id = insert_subscriber(&mut transaction, &new_subscriber, &pool)
+        .await
+        .map_err(SubscribeError::InsertSubscriberError)?;
 
     let subscription_token = generate_subscription_token();
 
     store_token(&mut transaction, subscriber_id, &subscription_token).await?;
 
-    if transaction.commit().await.is_err() {
-        return Ok(HttpResponse::InternalServerError().finish());
-    }
+    transaction
+        .commit()
+        .await
+        .map_err(SubscribeError::TransactionCommitError)?;
 
-    if send_confirmation_email(
+    send_confirmation_email(
         &tera,
         &email_client,
         new_subscriber,
         &base_url.0,
         &subscription_token,
     )
-    .await
-    .is_err()
-    {
-        return Ok(HttpResponse::InternalServerError().finish());
-    };
+    .await?;
 
     Ok(HttpResponse::Ok().finish())
 }
