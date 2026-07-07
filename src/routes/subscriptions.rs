@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Responder, ResponseError, web};
+use actix_web::{HttpResponse, ResponseError, web};
 use chrono::Utc;
 use rand::{RngExt, distr::Alphanumeric, rng};
 use sqlx::{Executor, PgPool, Postgres, Transaction};
@@ -12,6 +12,7 @@ use crate::{
     startup::ApplicationBaseUrl,
 };
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct StoreTokenError(sqlx::Error);
 
