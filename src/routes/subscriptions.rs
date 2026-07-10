@@ -9,42 +9,9 @@ use uuid::Uuid;
 use crate::{
     domain::{NewSubscriber, Subscriber},
     email_client::EmailClient,
-    helpers::render_confirmation_email,
+    helpers::{error_chain_fmt, render_confirmation_email},
     startup::ApplicationBaseUrl,
 };
-
-fn error_chain_fmt(e: impl std::error::Error, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    writeln!(f, "{}\n", e)?;
-    let mut current = e.source();
-    while let Some(cause) = current {
-        writeln!(f, "Caused by:\n\t{}", cause)?;
-        current = cause.source();
-    }
-    Ok(())
-}
-
-pub struct StoreTokenError(sqlx::Error);
-
-impl std::fmt::Debug for StoreTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-impl std::fmt::Display for StoreTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "A database error was encountered while trying to store a subscription token."
-        )
-    }
-}
-
-impl std::error::Error for StoreTokenError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
 
 #[derive(thiserror::Error)]
 pub enum SubscribeError {
@@ -208,7 +175,7 @@ pub async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
-) -> Result<(), StoreTokenError> {
+) -> Result<(), sqlx::Error> {
     let query = sqlx::query!(
         r#"
         INSERT INTO subscription_tokens (subscription_token, subscriber_id)
@@ -218,7 +185,7 @@ pub async fn store_token(
         subscriber_id
     );
 
-    transaction.execute(query).await.map_err(StoreTokenError)?;
+    transaction.execute(query).await?;
 
     Ok(())
 }
