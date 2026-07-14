@@ -115,7 +115,7 @@ pub async fn spawn_app() -> TestApp {
         email_server,
         port,
     );
-    add_test_user(&test_app.db_pool).await;
+    test_app.test_user.store(&test_app.db_pool).await;
     test_app
 }
 
