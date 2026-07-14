@@ -34,6 +34,7 @@ validator = "0.20.0"
 tera = { version = "2.0.0", features = ["glob_fs"] }
 thiserror = "2.0.18"
 anyhow = "1.0.103"
+base64 = "0.22.1"
 
 [dependencies.sqlx]
 version = "0.8"
