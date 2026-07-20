@@ -10,7 +10,7 @@ pub struct QueryParams {
 pub async fn login_form(tera: web::Data<Tera>, query: web::Query<QueryParams>) -> HttpResponse {
     let error_html = match query.0.error {
         None => "".to_string(),
-        Some(error_message) => error_message,
+        Some(error_message) => htmlescape::encode_minimal(&error_message),
     };
 
     let rendered_html = match render_login_form(&tera, error_html.as_str()) {
