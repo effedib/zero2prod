@@ -1,19 +1,16 @@
 use actix_web::{
     HttpResponse, ResponseError,
+    cookie::Cookie,
     error::InternalError,
     http::{StatusCode, header::LOCATION},
     web,
 };
-use hmac::Hmac;
-use hmac::KeyInit;
-use hmac::Mac;
-use secrecy::{ExposeSecret, SecretString};
+use secrecy::SecretString;
 use sqlx::PgPool;
 
 use crate::{
     authentication::{AuthError, Credentials, validate_credentials},
     helpers::error_chain_fmt,
-    startup::HmacSecret,
 };
 
 #[derive(serde::Deserialize)]
@@ -23,13 +20,12 @@ pub struct FormData {
 }
 
 #[tracing::instrument(
-    skip(form, pool, secret),
+    skip(form, pool),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn login(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
-    secret: web::Data<HmacSecret>,
 ) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form.0.username,
@@ -49,22 +45,9 @@ pub async fn login(
                 AuthError::InvalidCredentials(_) => LoginError::AuthError(e.into()),
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
             };
-            let query_string = format!("error={}", urlencoding::Encoded::new(e.to_string()));
-            let hmac_tag: String = {
-                let mut mac =
-                    Hmac::<sha2::Sha256>::new_from_slice(secret.0.expose_secret().as_bytes())
-                        .unwrap();
-                mac.update(query_string.as_bytes());
-                // MANUAL ENCODING
-                // mac.finalize()
-                //     .into_bytes()
-                //     .into_iter()
-                //     .map(|b| format!("{:02x}", b))
-                //     .collect()
-                hex::encode(mac.finalize().into_bytes())
-            };
-            let response = HttpResponse::build(e.status_code())
-                .insert_header((LOCATION, format!("/login?{query_string}&tag={hmac_tag}")))
+            let response = HttpResponse::SeeOther()
+                .insert_header((LOCATION, "/login"))
+                .cookie(Cookie::new("_flash", e.to_string()))
                 .finish();
 
             Err(InternalError::from_response(e, response))

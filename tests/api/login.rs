@@ -1,4 +1,4 @@
-use crate::helpers::{assert_is_redirect_to, spawn_app};
+use crate::helpers::spawn_app;
 
 #[tokio::test]
 async fn an_error_flash_message_is_set_on_failure() {
@@ -11,5 +11,13 @@ async fn an_error_flash_message_is_set_on_failure() {
 
     let response = app.post_login(&body).await;
 
-    assert_is_redirect_to(&response, "/login");
+    let flash_cookies = response.cookies().find(|c| c.name() == "_flash").unwrap();
+
+    assert_eq!(flash_cookies.value(), "Authentication failed");
+
+    let html_page = app.get_login_html().await;
+    assert!(html_page.contains(r#"<p><i>Authentication failed</i></p>"#));
+
+    let html_page = app.get_login_html().await;
+    assert!(!html_page.contains(r#"Authentication failed"#));
 }
