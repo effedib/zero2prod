@@ -4290,6 +4290,7 @@ dependencies = [
  "claims",
  "config",
  "fake",
+ "hex",
  "hmac 0.13.0",
  "htmlescape",
  "linkify",

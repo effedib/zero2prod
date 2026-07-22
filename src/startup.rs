@@ -4,8 +4,11 @@ use crate::configuration::{DatabaseSettings, Settings};
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::helpers::init_tera;
-use crate::routes::{confirm, health_check, home, login_form, login, publish_newsletter, subscribe};
+use crate::routes::{
+    confirm, health_check, home, login, login_form, publish_newsletter, subscribe,
+};
 use actix_web::{App, HttpServer, dev::Server, web};
+use secrecy::SecretString;
 use sqlx::PgPool;
 use tracing_actix_web::TracingLogger;
 
@@ -38,6 +41,7 @@ impl Application {
             connection_pool,
             email_client,
             configuration.application.base_url,
+            configuration.application.hmac_secret,
         )?;
 
         Ok(Self { port, server })
@@ -57,17 +61,21 @@ pub async fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
 }
 
 pub struct ApplicationBaseUrl(pub String);
+#[derive(Clone)]
+pub struct HmacSecret(pub SecretString);
 
 pub fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
+    hmac_secret: SecretString,
 ) -> Result<Server, std::io::Error> {
     let db_pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
     let tera = web::Data::new(init_tera("templates/**/*.html"));
+    let hmac_secret = web::Data::new(HmacSecret(hmac_secret));
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
@@ -82,6 +90,7 @@ pub fn run(
             .app_data(email_client.clone())
             .app_data(base_url.clone())
             .app_data(tera.clone())
+            .app_data(hmac_secret.clone())
     })
     .listen(listener)?
     .run();
