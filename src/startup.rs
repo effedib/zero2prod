@@ -7,8 +7,11 @@ use crate::helpers::init_tera;
 use crate::routes::{
     confirm, health_check, home, login, login_form, publish_newsletter, subscribe,
 };
+use actix_web::cookie::Key;
 use actix_web::{App, HttpServer, dev::Server, web};
-use secrecy::SecretString;
+use actix_web_flash_messages::FlashMessagesFramework;
+use actix_web_flash_messages::storage::CookieMessageStore;
+use secrecy::{ExposeSecret, SecretString};
 use sqlx::PgPool;
 use tracing_actix_web::TracingLogger;
 
@@ -75,9 +78,12 @@ pub fn run(
     let email_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
     let tera = web::Data::new(init_tera("templates/**/*.html"));
-    let hmac_secret = web::Data::new(HmacSecret(hmac_secret));
+    let message_store =
+        CookieMessageStore::builder(Key::from(hmac_secret.expose_secret().as_bytes())).build();
+    let message_framework = FlashMessagesFramework::builder(message_store).build();
     let server = HttpServer::new(move || {
         App::new()
+            .wrap(message_framework.clone())
             .wrap(TracingLogger::default())
             .route("/", web::get().to(home))
             .route("/login", web::get().to(login_form))
@@ -90,7 +96,6 @@ pub fn run(
             .app_data(email_client.clone())
             .app_data(base_url.clone())
             .app_data(tera.clone())
-            .app_data(hmac_secret.clone())
     })
     .listen(listener)?
     .run();
