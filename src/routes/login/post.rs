@@ -55,11 +55,13 @@ pub async fn login(
                     Hmac::<sha2::Sha256>::new_from_slice(secret.0.expose_secret().as_bytes())
                         .unwrap();
                 mac.update(query_string.as_bytes());
-                mac.finalize()
-                    .into_bytes()
-                    .into_iter()
-                    .map(|b| format!("{:02x}", b))
-                    .collect()
+                // MANUAL ENCODING
+                // mac.finalize()
+                //     .into_bytes()
+                //     .into_iter()
+                //     .map(|b| format!("{:02x}", b))
+                //     .collect()
+                hex::encode(mac.finalize().into_bytes())
             };
             let response = HttpResponse::build(e.status_code())
                 .insert_header((LOCATION, format!("/login?{query_string}&tag={hmac_tag}")))
