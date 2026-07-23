@@ -38,6 +38,7 @@ base64 = "0.22.1"
 argon2 = { version = "0.5.3", features = ["std"] }
 htmlescape = "0.3.1"
 actix-web-flash-messages = { version = "0.5.0", features = ["cookies"] }
+actix-session = { version = "0.11.0", features = ["redis-session-rustls"] }
 
 [dependencies.sqlx]
 version = "0.8"
