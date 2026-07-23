@@ -5,7 +5,7 @@ use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::helpers::init_tera;
 use crate::routes::{
-    confirm, health_check, home, login, login_form, publish_newsletter, subscribe,
+    admin_dashboard, confirm, health_check, home, login, login_form, publish_newsletter, subscribe,
 };
 use actix_session::SessionMiddleware;
 use actix_session::storage::RedisSessionStore;
@@ -98,6 +98,7 @@ async fn run(
             .route("/", web::get().to(home))
             .route("/login", web::get().to(login_form))
             .route("/login", web::post().to(login))
+            .route("/admin/dashboard", web::get().to(admin_dashboard))
             .route("health_check", web::get().to(health_check))
             .route("subscriptions", web::post().to(subscribe))
             .route("/subscriptions/confirm", web::get().to(confirm))

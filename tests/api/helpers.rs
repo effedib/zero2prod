@@ -119,6 +119,17 @@ impl TestApp {
             .await
             .unwrap()
     }
+
+    pub async fn get_admin_dashboard_html(&self) -> String {
+        self.api_client
+            .get(format!("{}/admin/dashboard", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute get_login_html request")
+            .text()
+            .await
+            .unwrap()
+    }
 }
 
 #[allow(clippy::let_underscore_future)]
