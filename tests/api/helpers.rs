@@ -5,7 +5,7 @@ use argon2::{
 use std::sync::LazyLock;
 
 use secrecy::SecretString;
-use sqlx::{Connection, Executor, PgConnection, PgPool};
+use sqlx::{AssertSqlSafe, Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::{
@@ -171,8 +171,9 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .await
         .expect("Failed to connect to postgres");
 
+    let query_create_database = format!(r#"CREATE DATABASE "{}";"#, config.database_name);
     connection
-        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .execute(AssertSqlSafe(query_create_database))
         .await
         .expect("Failed to create database");
     let connection_pool = PgPool::connect_with(config.connect_options())

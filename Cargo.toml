@@ -34,17 +34,18 @@ validator = "0.20.0"
 tera = { version = "2.0.0", features = ["glob_fs"] }
 thiserror = "2.0.18"
 anyhow = "1.0.103"
-base64 = "0.22.1"
+base64 = "0.23"
 argon2 = { version = "0.5.3", features = ["std"] }
 htmlescape = "0.3.1"
 actix-web-flash-messages = { version = "0.5.0", features = ["cookies"] }
 actix-session = { version = "0.11.0", features = ["redis-session-rustls"] }
 
 [dependencies.sqlx]
-version = "0.8"
+version = "0.9"
 default-features = false
 features = [
-  "runtime-tokio-rustls",
+  "runtime-tokio",
+  "tls-rustls",
   "macros",
   "postgres",
   "uuid",
