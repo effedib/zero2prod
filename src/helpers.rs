@@ -9,14 +9,18 @@ pub fn init_tera(template_glob: &str) -> Tera {
     tera
 }
 
-pub fn render_confirmation_email(
+pub fn render_html(
     tera: &Tera,
-    confirmation_link: &str,
+    args: &[(&str, &str)],
+    template_name: String,
 ) -> Result<String, tera::Error> {
     let mut context = Context::new();
-    context.insert("confirmation_link", confirmation_link);
 
-    tera.render("confirmation.html", &context)
+    for (key, val) in args {
+        context.insert(key.to_string(), val);
+    }
+
+    tera.render(&template_name, &context)
 }
 
 pub fn error_chain_fmt(

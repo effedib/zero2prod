@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{
     domain::{NewSubscriber, Subscriber},
     email_client::EmailClient,
-    helpers::{error_chain_fmt, render_confirmation_email},
+    helpers::{error_chain_fmt, render_html},
     startup::ApplicationBaseUrl,
 };
 
@@ -114,8 +114,12 @@ pub async fn send_confirmation_email(
         "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
         confirmation_link
     );
-    let html_body = render_confirmation_email(tera, confirmation_link.as_str())
-        .expect("Impossible to render the confirmation email");
+    let html_body = render_html(
+        tera,
+        &[("confirmation_link", confirmation_link.as_str())],
+        "confirmation.html".into(),
+    )
+    .expect("Impossible to render the confirmation email");
 
     email_client
         .send_email(

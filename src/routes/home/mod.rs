@@ -1,10 +1,11 @@
 use actix_web::http::header::ContentType;
 use actix_web::{HttpResponse, web};
-use tera::{Context, Tera};
+use tera::Tera;
+
+use crate::helpers::render_html;
 
 pub async fn home(tera: web::Data<Tera>) -> HttpResponse {
-    let context = Context::new();
-    let rendered_html = match tera.render("home.html", &context) {
+    let rendered_html = match render_html(&tera, &[], "home.html".into()) {
         Ok(r) => r,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };

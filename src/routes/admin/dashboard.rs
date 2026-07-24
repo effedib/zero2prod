@@ -8,7 +8,7 @@ use sqlx::PgPool;
 use tera::Tera;
 use uuid::Uuid;
 
-use crate::session_state::TypedSession;
+use crate::{helpers::render_html, session_state::TypedSession};
 
 fn e500<T>(e: T) -> actix_web::Error
 where
@@ -30,9 +30,13 @@ pub async fn admin_dashboard(
             .finish());
     };
 
-    let rendered_html = match render_dashboard_form(&tera, username.as_str()) {
+    let rendered_html = match render_html(
+        &tera,
+        &[("username", username.as_str())],
+        "dashboard.html".into(),
+    ) {
         Ok(html) => html,
-        Err(e) => return Err(e500(e)),
+        Err(_) => return Err(e500("error while trying to render the dashboard html")),
     };
 
     Ok(HttpResponse::Ok()
@@ -40,13 +44,6 @@ pub async fn admin_dashboard(
         .body(rendered_html))
 }
 
-pub fn render_dashboard_form(tera: &Tera, username: &str) -> Result<String, String> {
-    let mut context = tera::Context::new();
-    context.insert("username", username);
-
-    tera.render("dashboard.html", &context)
-        .map_err(|_| "error while trying to render the dashboard html".into())
-}
 
 #[tracing::instrument(name = "Get username", skip(pool))]
 async fn get_username(user_id: Uuid, pool: &PgPool) -> Result<String, anyhow::Error> {
