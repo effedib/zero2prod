@@ -1,3 +1,4 @@
+use actix_web::{HttpResponse, http::header::LOCATION};
 use tera::{Context, Tera};
 
 pub fn init_tera(template_glob: &str) -> Tera {
@@ -34,4 +35,17 @@ pub fn error_chain_fmt(
         current = cause.source();
     }
     Ok(())
+}
+
+pub fn see_other(location: &str) -> HttpResponse {
+    HttpResponse::SeeOther()
+        .insert_header((LOCATION, location))
+        .finish()
+}
+
+pub fn e500<T>(e: T) -> actix_web::Error
+where
+    T: std::fmt::Debug + std::fmt::Display + 'static,
+{
+    actix_web::error::ErrorInternalServerError(e)
 }

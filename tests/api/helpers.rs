@@ -138,6 +138,26 @@ impl TestApp {
             .await
             .expect("Failed to execute get_login_html request")
     }
+
+    pub async fn get_change_password(&self) -> reqwest::Response {
+        self.api_client
+            .get(format!("{}/admin/dashboard", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute get_change_password request")
+    }
+
+    pub async fn post_change_password<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(format!("{}/admin/dashboard", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute post_change_password request")
+    }
 }
 
 #[allow(clippy::let_underscore_future)]

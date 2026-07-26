@@ -1,21 +1,13 @@
-use actix_web::{
-    HttpResponse,
-    http::header::{ContentType, LOCATION},
-    web,
-};
+use actix_web::{HttpResponse, http::header::ContentType, web};
 use anyhow::Context;
 use sqlx::PgPool;
 use tera::Tera;
 use uuid::Uuid;
 
-use crate::{helpers::render_html, session_state::TypedSession};
-
-fn e500<T>(e: T) -> actix_web::Error
-where
-    T: std::fmt::Debug + std::fmt::Display + 'static,
-{
-    actix_web::error::ErrorInternalServerError(e)
-}
+use crate::{
+    helpers::{e500, render_html, see_other},
+    session_state::TypedSession,
+};
 
 pub async fn admin_dashboard(
     tera: web::Data<Tera>,
@@ -25,9 +17,7 @@ pub async fn admin_dashboard(
     let username = if let Some(user_id) = session.get_user_id().map_err(e500)? {
         get_username(user_id, &pool).await.map_err(e500)?
     } else {
-        return Ok(HttpResponse::SeeOther()
-            .insert_header((LOCATION, "/login"))
-            .finish());
+        return Ok(see_other("/login"));
     };
 
     let rendered_html = match render_html(
@@ -43,7 +33,6 @@ pub async fn admin_dashboard(
         .content_type(ContentType::html())
         .body(rendered_html))
 }
-
 
 #[tracing::instrument(name = "Get username", skip(pool))]
 async fn get_username(user_id: Uuid, pool: &PgPool) -> Result<String, anyhow::Error> {
