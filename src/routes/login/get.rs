@@ -11,6 +11,7 @@ pub async fn login_form(
     flash_messages: IncomingFlashMessages,
 ) -> HttpResponse {
     let mut error_html = String::new();
+    // handle many messages
     for m in flash_messages.iter().filter(|m| m.level() == Level::Error) {
         write!(error_html, "{}", m.content()).unwrap()
     }

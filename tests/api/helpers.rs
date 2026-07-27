@@ -162,6 +162,14 @@ impl TestApp {
             .await
             .expect("Failed to execute post_change_password request")
     }
+
+    pub async fn post_logout(&self) -> reqwest::Response {
+        self.api_client
+            .post(format!("{}/admin/logout", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute logout request")
+    }
 }
 
 #[allow(clippy::let_underscore_future)]
