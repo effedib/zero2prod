@@ -47,5 +47,14 @@ pub async fn change_password(
             AuthError::UnexpectedError(_) => Err(e500(e)),
         };
     }
+
+    if !validate_new_password(form.0.new_password.expose_secret()).await {
+        FlashMessage::error("The new password must be long between 12 and 129 chars").send();
+        return Ok(see_other("/admin/password"));
+    }
     todo!()
+}
+
+async fn validate_new_password(new_pwd: &str) -> bool {
+    new_pwd.len() > 11 && new_pwd.len() < 129
 }
