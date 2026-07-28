@@ -52,7 +52,12 @@ pub async fn change_password(
         FlashMessage::error("The new password must be long between 12 and 129 chars").send();
         return Ok(see_other("/admin/password"));
     }
-    todo!()
+
+    crate::authentication::change_password(user_id, form.0.new_password, &pool)
+        .await
+        .map_err(e500)?;
+    FlashMessage::info("Your password has been changed.").send();
+    Ok(see_other("/admin/password"))
 }
 
 async fn validate_new_password(new_pwd: &str) -> bool {
