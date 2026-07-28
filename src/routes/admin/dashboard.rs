@@ -5,20 +5,17 @@ use tera::Tera;
 use uuid::Uuid;
 
 use crate::{
-    helpers::{e500, render_html, see_other},
-    session_state::TypedSession,
+    authentication::UserId,
+    helpers::{e500, render_html},
 };
 
 pub async fn admin_dashboard(
     tera: web::Data<Tera>,
-    session: TypedSession,
+    user_id: web::ReqData<UserId>,
     pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let username = if let Some(user_id) = session.get_user_id().map_err(e500)? {
-        get_username(user_id, &pool).await.map_err(e500)?
-    } else {
-        return Ok(see_other("/login"));
-    };
+    let user_id = user_id.into_inner();
+    let username = get_username(*user_id, &pool).await.map_err(e500)?;
 
     let rendered_html = match render_html(
         &tera,

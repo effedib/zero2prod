@@ -3,20 +3,12 @@ use actix_web_flash_messages::IncomingFlashMessages;
 use std::fmt::Write;
 use tera::Tera;
 
-use crate::{
-    helpers::{e500, render_html, see_other},
-    session_state::TypedSession,
-};
+use crate::helpers::render_html;
 
 pub async fn change_password_form(
     tera: web::Data<Tera>,
-    session: TypedSession,
     flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, actix_web::Error> {
-    if session.get_user_id().map_err(e500)?.is_none() {
-        return Ok(see_other("/login"));
-    }
-
     let mut msg_html = String::new();
     for m in flash_messages.iter() {
         write!(msg_html, "{}", m.content()).unwrap();
