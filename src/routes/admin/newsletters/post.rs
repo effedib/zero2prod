@@ -4,7 +4,6 @@ use anyhow::Context;
 use sqlx::PgPool;
 
 use crate::{
-    authentication::UserId,
     domain::SubscriberEmail,
     email_client::EmailClient,
     helpers::{e500, see_other},
@@ -28,7 +27,6 @@ pub async fn publish_newsletter(
     body: web::Form<FormData>,
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
-    _user_id: web::ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
     for subscriber in subscribers {
