@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 use crate::helpers::{assert_is_redirect_to, spawn_app};
 
 #[tokio::test]
@@ -34,4 +36,18 @@ async fn redirect_to_admin_dashboard_after_login_success() {
 
     let html_page = app.get_admin_dashboard_html().await;
     assert!(html_page.contains(format!("Welcome {}", app.test_user.username).as_str()));
+}
+
+#[tokio::test]
+async fn non_existing_user_is_rejected() {
+    let app = spawn_app().await;
+    let username = Uuid::new_v4().to_string();
+
+    let body = serde_json::json!({
+        "username": username.as_str(),
+        "password": &app.test_user.password
+    });
+
+    let response = app.post_login(&body).await;
+    assert_is_redirect_to(&response, "/login");
 }
