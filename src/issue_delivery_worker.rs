@@ -4,11 +4,20 @@ use sqlx::{Executor, PgPool, Postgres, Transaction};
 use tracing::{Span, field::display};
 use uuid::Uuid;
 
-use crate::{domain::SubscriberEmail, email_client::EmailClient};
+use crate::{
+    configuration::Settings, domain::SubscriberEmail, email_client::EmailClient,
+    startup::get_connection_pool,
+};
 
-async fn worker_loop(pool: &PgPool, email_client: &EmailClient) -> Result<(), anyhow::Error> {
+pub async fn run_worker_until_stopped(configuration: Settings) -> Result<(), anyhow::Error> {
+    let connection_pool = get_connection_pool(&configuration.database).await;
+    let email_client = configuration.email_client.client();
+    worker_loop(connection_pool, email_client).await
+}
+
+async fn worker_loop(pool: PgPool, email_client: EmailClient) -> Result<(), anyhow::Error> {
     loop {
-        match try_execute_task(pool, email_client).await {
+        match try_execute_task(&pool, &email_client).await {
             Ok(ExecutionOutcome::EmptyQueue) => {
                 tokio::time::sleep(Duration::from_secs(10)).await;
             }
@@ -20,7 +29,7 @@ async fn worker_loop(pool: &PgPool, email_client: &EmailClient) -> Result<(), an
     }
 }
 
-enum ExecutionOutcome {
+pub enum ExecutionOutcome {
     TaskCompleted,
     EmptyQueue,
 }
@@ -33,7 +42,7 @@ enum ExecutionOutcome {
     ),
     err
 )]
-async fn try_execute_task(
+pub async fn try_execute_task(
     pool: &PgPool,
     email_client: &EmailClient,
 ) -> Result<ExecutionOutcome, anyhow::Error> {

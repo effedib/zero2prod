@@ -10,7 +10,8 @@ use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::{
     configuration::{DatabaseSettings, get_configuration},
-    email_client::TargetEmailBody,
+    email_client::{EmailClient, TargetEmailBody},
+    issue_delivery_worker::{ExecutionOutcome, try_execute_task},
     startup::{Application, get_connection_pool},
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -35,6 +36,7 @@ pub struct TestApp {
     pub port: u16,
     pub test_user: TestUser,
     pub api_client: reqwest::Client,
+    pub email_client: EmailClient,
 }
 
 impl TestApp {
@@ -44,6 +46,7 @@ impl TestApp {
         email_server: MockServer,
         port: u16,
         api_client: reqwest::Client,
+        email_client: EmailClient,
     ) -> Self {
         Self {
             address,
@@ -52,6 +55,19 @@ impl TestApp {
             port,
             test_user: TestUser::generate(),
             api_client,
+            email_client,
+        }
+    }
+
+    pub async fn dispatch_all_pending_emails(&self) {
+        loop {
+            if let ExecutionOutcome::EmptyQueue =
+                try_execute_task(&self.db_pool, &self.email_client)
+                    .await
+                    .unwrap()
+            {
+                break;
+            }
         }
     }
 
@@ -220,6 +236,7 @@ pub async fn spawn_app() -> TestApp {
         email_server,
         port,
         client,
+        configuration.email_client.client(),
     );
     test_app.test_user.store(&test_app.db_pool).await;
     test_app

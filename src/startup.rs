@@ -2,7 +2,6 @@ use std::net::TcpListener;
 
 use crate::authentication::reject_anonymous_users;
 use crate::configuration::{DatabaseSettings, Settings};
-use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::helpers::init_tera;
 use crate::routes::{
@@ -28,16 +27,7 @@ pub struct Application {
 impl Application {
     pub async fn build(configuration: Settings) -> Result<Self, anyhow::Error> {
         let connection_pool = get_connection_pool(&configuration.database).await;
-        let timeout = configuration.email_client.timeout();
-        let sender = SubscriberEmail::parse(configuration.email_client.sender_email)
-            .expect("Invalid sender email address");
-        let email_client = EmailClient::new(
-            configuration.email_client.base_url,
-            sender,
-            configuration.email_client.authorization_token,
-            timeout,
-        );
-
+        let email_client = configuration.email_client.client();
         let address = format!(
             "{}:{}",
             configuration.application.host, configuration.application.port
